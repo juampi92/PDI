@@ -1,11 +1,12 @@
 (function(){
 
+	var $buffer = $('#buffer');
+
 	// Canvas
 
 	var MyCanvas = {
 		el: document.getElementById('canvas'),
 		context: null,
-		current: null, // El canvas contiene una imagen. Y a travéz de él se accede a las imágenes
 		init: function(){
 			this.context = this.el.getContext('2d');
 
@@ -17,11 +18,10 @@
 			this.el.width = this.el.width;
 		},
 		renderImg: function( imag ){
-			MyCanvas.current = imag;
-			MyCanvas.context.drawImage( imag.img , 0,0 );
+			MyCanvas.context.putImageData( imag.imgData , 0,0 );
 		},
 		getCurrentData: function(){
-			return this.context.getImageData(0, 0, MyCanvas.current.img.width, MyCanvas.current.img.height);
+			return this.context.getImageData(0, 0, MyCanvas.el.width, MyCanvas.el.height);
 		}
 	};
 	MyCanvas.init();
@@ -32,16 +32,31 @@
 		this.img = new Image();
 		this.loaded = false;
 		this.src = src;
+		this.imgData = {};
 	};
 
 	Imagen.prototype.load = function( onload ) {
 		var self = this;
 
 		this.img.onload = function(){
-			if ( onload ) onload(self);
+			self.getImageData(onload);
 			self.loaded = true;
 		};
 		this.img.src = this.src;
+	};
+
+	Imagen.prototype.getImageData = function( onload ){
+		var canvas = document.createElement('canvas');
+
+		canvas.width = this.img.width;
+		canvas.height = this.img.height;
+
+		var context = canvas.getContext('2d');
+		context.drawImage(this.img,0,0);
+
+		this.imgData = context.getImageData(0, 0, this.img.width,this.img.height);
+
+		if ( onload ) onload(this);
 	};
 
 	Imagen.prototype.getPixelBase = function(x,y){
@@ -50,19 +65,19 @@
 
 	Imagen.prototype.getColor = function(x,y) {
 		var pixBase = this.getPixelBase(x,y);
-		return {r:this.img.data[pixBase],
-				g:this.img.data[pixBase+1],
-				b:this.img.data[pixBase+2],
-				a:this.img.data[pixBase+3]};
+		return {r:this.imgData.data[pixBase],
+				g:this.imgData.data[pixBase+1],
+				b:this.imgData.data[pixBase+2],
+				a:this.imgData.data[pixBase+3]};
 	};
 
 	Imagen.prototype.setPixel = function(x,y,color){
 		var pixBase = this.getPixelBase(x,y);
 		if ( ! $.isArray(color) && $.isNumeric(color) ) color = {r:color,g:color,b:color};
 
-		this.img.data[pixBase] = color.r;
-		this.img.data[pixBase+1] = color.g;
-		this.img.data[pixBase+2] = color.b;
+		this.imgData.data[pixBase] = color.r;
+		this.imgData.data[pixBase+1] = color.g;
+		this.imgData.data[pixBase+2] = color.b;
 	};
 
 	Imagen.prototype.HexToRGB = function(hex){
@@ -91,8 +106,8 @@
 
 	// PDI
 
-	function PDI( ){
-		this.source = MyCanvas.current;
+	function PDI( source ){
+		this.source = source;
 		this.events = {};
 		this.dest = null;
 	};
@@ -104,9 +119,8 @@
 	PDI.prototype.loop = function(callback){
 		this.clone();
 
-		var imgData = MyCanvas.getCurrentData(),
-			pixels_source = imgData.data,
-			pixels_dest = imgData.data,
+		var pixels_source = this.source.imgData.data,
+			pixels_dest = this.source.imgData.data,
     		numPixels = this.source.img.width * this.source.img.height;
 
     	for (var i = 0; i < numPixels; i++) {
@@ -116,9 +130,10 @@
 		    pixels_dest[i*4+2] = rgb.b; // Blue
 		};
 
-		imgData.data = pixels_dest;
+		this.dest.imgData = this.source.imgData;
+		this.dest.imgData.data = pixels_dest;
 
-		MyCanvas.context.putImageData(imgData, 0, 0);
+		MyCanvas.renderImg(this.dest);
 
 		if ( this.events["end"] ) this.events["end"]();
 	};
@@ -146,19 +161,19 @@
 
 
 	var pdi;
+	var imag;
 
 	source.$btn.on('click',function(){
 
 		// Acá en el aire. Desp se usa la clase PDI
-		var imag = new Imagen( source.$select.val() );
-
+		imag = new Imagen( source.$select.val() );
 		imag.load(MyCanvas.renderImg);
 
 	});
 
 	effects.$btn.on('click',function(){
 
-		pdi = new PDI();
+		pdi = new PDI(imag);
 
 		pdi.on("end",function(){
 			pdi.render();
