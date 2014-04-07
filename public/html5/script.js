@@ -2,7 +2,9 @@
 
 	var $buffer = $('#buffer');
 
-	// Canvas
+	// ************************
+	// 		Canvas
+	// ************************
 
 	var MyCanvas = {
 		el: document.getElementById('canvas'),
@@ -17,8 +19,15 @@
 		reset: function(){
 			this.el.width = this.el.width;
 		},
-		renderImg: function( imag ){
-			MyCanvas.context.putImageData( imag.imgData , 0,0 );
+		renderImg: function( imag , keep ){
+			// Clear screen
+			if ( ! keep ) MyCanvas.reset();
+			
+			// Center image:
+			var x = ( MyCanvas.el.width - imag.width ) / 2,
+				y = ( MyCanvas.el.height - imag.height ) / 2;
+
+			MyCanvas.context.putImageData( imag.imgData , x,y );
 		},
 		getCurrentData: function(){
 			return this.context.getImageData(0, 0, MyCanvas.el.width, MyCanvas.el.height);
@@ -26,23 +35,43 @@
 	};
 	MyCanvas.init();
 
-	// Imagen
-
+	// ************************
+	// 		Imagen
+	// ************************
 	function Imagen( src ){
 		this.img = new Image();
 		this.loaded = false;
 		this.src = src;
 		this.imgData = {};
+		this.width = this.height = 0;
 	};
 
-	Imagen.prototype.load = function( onload ) {
+	Imagen.prototype.load = function( onload , remote ) {
 		var self = this;
 
 		this.img.onload = function(){
 			self.getImageData(onload);
 			self.loaded = true;
 		};
-		this.img.src = this.src;
+		
+		if ( ! remote ) {
+			this.img.src = this.src;
+		} else {
+			// Fetch base64 of remote Image
+			$.getImageData({
+				url: self.src,
+				server: "./getImage.php",
+				success: function(image){
+					image.onload = self.img.onload;
+					self.img = image;
+					self.img.onload();
+				},
+				error: function(xhr, text_status){
+				  // Handle your error here
+				  console.log("Error:",xhr,text_status);
+				}
+			});
+		};
 	};
 
 	Imagen.prototype.getImageData = function( onload ){
@@ -51,10 +80,30 @@
 		canvas.width = this.img.width;
 		canvas.height = this.img.height;
 
-		var context = canvas.getContext('2d');
-		context.drawImage(this.img,0,0);
+		//Resize image:
+		var w = this.img.width,
+			h = this.img.height;
 
-		this.imgData = context.getImageData(0, 0, this.img.width,this.img.height);
+		if ( w > MyCanvas.el.width ){
+			h = ( ( MyCanvas.el.width * h ) / w );
+			w = MyCanvas.el.width;
+		}
+		if ( h > MyCanvas.el.height ){
+			w = ( ( MyCanvas.el.height * w ) / h );
+			h = MyCanvas.el.height;
+		}
+
+		w = Math.floor(w);
+		h = Math.floor(h);
+		console.log(w,h);
+
+		var context = canvas.getContext('2d');
+		context.drawImage(this.img,0,0,w,h);
+
+		this.imgData = context.getImageData(0, 0, w,h);
+
+		this.width = w;
+		this.height = h;
 
 		if ( onload ) onload(this);
 	};
@@ -104,7 +153,9 @@
 		return hex;
 	};
 
-	// PDI
+	// ************************
+	// 		PDI
+	// ************************
 
 	function PDI( source ){
 		this.source = source;
@@ -113,7 +164,9 @@
 	};
 
 	PDI.prototype.clone = function(){
-		this.dest = new Imagen(this.source.img.width,this.source.img.height);
+		this.dest = new Imagen(this.source.width,this.source.height);
+		this.dest.width = this.source.width;
+		this.dest.height = this.source.height;
 	}
 
 	PDI.prototype.loop = function(callback){
@@ -121,14 +174,17 @@
 
 		var pixels_source = this.source.imgData.data,
 			pixels_dest = this.source.imgData.data,
-    		numPixels = this.source.img.width * this.source.img.height;
+    		numPixels = this.source.width * this.source.height;
 
-    	for (var i = 0; i < numPixels; i++) {
-    		var rgb = callback(pixels_source[i*4] , pixels_source[i*4+1] , pixels_source[i*4+2]);
-		    pixels_dest[i*4] = rgb.r;
-		    pixels_dest[i*4+1] = rgb.g; // Green
-		    pixels_dest[i*4+2] = rgb.b; // Blue
-		};
+    	var i = 0;
+    	for ( var y = 0 ; y < this.source.height ; y++ )
+    		for ( var x = 0 ; x < this.source.width ; x++ ){
+    			var rgb = callback(pixels_source[i*4] , pixels_source[i*4+1] , pixels_source[i*4+2] ,x,y);
+			    pixels_dest[i*4] = rgb.r;
+			    pixels_dest[i*4+1] = rgb.g; // Green
+			    pixels_dest[i*4+2] = rgb.b; // Blue
+			    i++;
+    		}
 
 		this.dest.imgData = this.source.imgData;
 		this.dest.imgData.data = pixels_dest;
@@ -136,6 +192,7 @@
 		MyCanvas.renderImg(this.dest);
 
 		if ( this.events["end"] ) this.events["end"]();
+		return;
 	};
 
 	PDI.prototype.on = function( trigger , callback ){
@@ -148,40 +205,67 @@
 		MyCanvas.renderImg( this.dest );*/
 	};
 
+	// ************************
+	//  	Trans
+	// ************************
 
-	// UI
+	var efectos = {
+		"negativo": function(pdi){
+			pdi.loop(function(r,g,b,x,y){
+				return { r: 255-r, g: 255-g , b: 255-b };
+			});
+		},
+		"blanco_negro": function(pdi){
+			pdi.loop(function(r,g,b,x,y){
+				return { r: 255-r, g: 255-g , b: 255-b };
+			});
+		}
+	}
+
+	// ************************
+	// 		UI
+	// ************************
 	var $menu = $('#menu'),
 		source = {
 			$select: $menu.find('select[name="imgsource"]'),
+			$input: $menu.find('input[name="imgremotesource"]'),
 			$btn: $menu.find('button[name="load"]')
 		},
 		effects = {
+			$select: $menu.find('select[name="effect"]'),
 			$btn: $menu.find('button[name="render"]')
 		};
 
+	// Completar efectos
+	for ( var key in efectos )
+		effects.$select.append( $('<option></option>').val(key).html(key) );
 
 	var pdi;
 	var imag;
 
 	source.$btn.on('click',function(){
+		source.$btn.html(" ... Cargando ...").attr("disabled", true);
 
 		// Acá en el aire. Desp se usa la clase PDI
-		imag = new Imagen( source.$select.val() );
-		imag.load(MyCanvas.renderImg);
+		var remote = false;
+		if ( source.$input.val() != "" ) {
+			imag = new Imagen(source.$input.val());
+			remote = true;
+		} else {
+			imag = new Imagen( source.$select.val() );
+		}
+		imag.load(function(i){
+			MyCanvas.renderImg(i);
+			source.$btn.html("Cargar").attr("disabled", false);
+		}, remote);
 
 	});
 
 	effects.$btn.on('click',function(){
 
 		pdi = new PDI(imag);
-
-		pdi.on("end",function(){
-			pdi.render();
-		});
-
-		pdi.loop(function(r,g,b){
-			return { r: 255-r, g: 255-g , b: 255-b };
-		});
+		pdi.on("end",pdi.render);
+		efectos[effects.$select.val()](pdi);
 
 	});
 
