@@ -27,7 +27,6 @@
 			var x = ( MyCanvas.el.width - imag.width ) / 2,
 				y = ( MyCanvas.el.height - imag.height ) / 2;
 
-			console.log(imag.imgData.data[0]);
 			MyCanvas.context.putImageData( imag.imgData , x,y );
 		},
 		getCurrentData: function(){
@@ -227,7 +226,8 @@
 		},
 		"blanco_negro": function(pdi){
 			pdi.loop(function(r,g,b,x,y){
-				return { r: 255-r, g: 255-g , b: 255-b };
+				var iluminancia = (0.2126*r) + (0.7152*g) + (0.0722*b);
+				return { r: iluminancia, g: iluminancia , b: iluminancia };
 			});
 		}
 	}
