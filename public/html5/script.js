@@ -27,6 +27,7 @@
 			var x = ( MyCanvas.el.width - imag.width ) / 2,
 				y = ( MyCanvas.el.height - imag.height ) / 2;
 
+			console.log(imag.imgData.data[0]);
 			MyCanvas.context.putImageData( imag.imgData , x,y );
 		},
 		getCurrentData: function(){
@@ -74,6 +75,21 @@
 		};
 	};
 
+	Imagen.prototype.clone = function(){
+		var ret = new Imagen();
+
+    	var canvas = document.createElement('canvas');
+		
+		ret.width = ret.img.width = canvas.width = this.width;
+		ret.height = ret.img.height = canvas.height = this.height;
+
+		var context = canvas.getContext('2d');
+
+		context.putImageData(this.imgData,0,0);
+		ret.imgData = context.getImageData(0, 0, this.width,this.height);
+    	return ret;
+	};
+
 	Imagen.prototype.getImageData = function( onload ){
 		var canvas = document.createElement('canvas');
 
@@ -95,7 +111,6 @@
 
 		w = Math.floor(w);
 		h = Math.floor(h);
-		console.log(w,h);
 
 		var context = canvas.getContext('2d');
 		context.drawImage(this.img,0,0,w,h);
@@ -164,16 +179,14 @@
 	};
 
 	PDI.prototype.clone = function(){
-		this.dest = new Imagen(this.source.width,this.source.height);
-		this.dest.width = this.source.width;
-		this.dest.height = this.source.height;
+		this.dest = this.source.clone();
 	}
 
 	PDI.prototype.loop = function(callback){
 		this.clone();
 
 		var pixels_source = this.source.imgData.data,
-			pixels_dest = this.source.imgData.data,
+			pixels_dest = this.dest.imgData.data,
     		numPixels = this.source.width * this.source.height;
 
     	var i = 0;
@@ -185,9 +198,6 @@
 			    pixels_dest[i*4+2] = rgb.b; // Blue
 			    i++;
     		}
-
-		this.dest.imgData = this.source.imgData;
-		this.dest.imgData.data = pixels_dest;
 
 		MyCanvas.renderImg(this.dest);
 
