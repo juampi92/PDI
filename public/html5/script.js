@@ -181,7 +181,7 @@
 		this.dest = this.source.clone();
 	}
 
-	PDI.prototype.loop = function(callback){
+	PDI.prototype.loop = function(callback , onEnd){
 		this.clone();
 
 		var pixels_source = this.source.imgData.data,
@@ -192,15 +192,15 @@
     	for ( var y = 0 ; y < this.source.height ; y++ )
     		for ( var x = 0 ; x < this.source.width ; x++ ){
     			var rgb = callback(pixels_source[i*4] , pixels_source[i*4+1] , pixels_source[i*4+2] ,x,y);
+    			if ( !rgb ) rgb = {r:pixels_source[i*4],g:pixels_source[i*4+1],b:pixels_source[i*4+2]};
 			    pixels_dest[i*4] = rgb.r;
 			    pixels_dest[i*4+1] = rgb.g; // Green
 			    pixels_dest[i*4+2] = rgb.b; // Blue
 			    i++;
     		}
 
-		MyCanvas.renderImg(this.dest);
-
 		if ( this.events["end"] ) this.events["end"]();
+		if ( onEnd ) onEnd();
 		return;
 	};
 
@@ -210,8 +210,7 @@
 	};
 
 	PDI.prototype.render = function(){
-		/*MyCanvas.reset();
-		MyCanvas.renderImg( this.dest );*/
+		MyCanvas.renderImg(this.dest);
 	};
 
 	// ************************
@@ -219,16 +218,34 @@
 	// ************************
 
 	var efectos = {
-		"negativo": function(pdi){
+		"negativo": function(pdi , callback){
 			pdi.loop(function(r,g,b,x,y){
 				return { r: 255-r, g: 255-g , b: 255-b };
+			},function(){
+				if ( callback ) callback();
 			});
+			return;
 		},
-		"blanco_negro": function(pdi){
+		"blanco_negro": function(pdi ,callback){
 			pdi.loop(function(r,g,b,x,y){
 				var iluminancia = (0.2126*r) + (0.7152*g) + (0.0722*b);
 				return { r: iluminancia, g: iluminancia , b: iluminancia };
+			},function(){
+				if ( callback ) callback();
 			});
+			return;
+		},
+		"histograma": function(pdi){
+			efectos["blanco_negro"](pdi);
+
+			var histograma = new Array(256);
+			for (var i = 0; i < histograma.length; i++)
+				histograma[i] = 0;
+
+			pdi.loop(function(b){
+				histograma[b]++;
+			});
+			console.log(histograma);
 		}
 	}
 
@@ -274,7 +291,7 @@
 	effects.$btn.on('click',function(){
 
 		pdi = new PDI(imag);
-		pdi.on("end",pdi.render);
+		pdi.on("end",function(){pdi.render()});
 		efectos[effects.$select.val()](pdi);
 
 	});
