@@ -184,7 +184,8 @@
 	};
 
 	PDI.prototype.dispose = function(){
-		this.source = this.dest;
+		this.source = this.dest.clone();
+		this.dest = null;
 	};
 
 	PDI.prototype.loop = function(callback , onEnd){
@@ -243,13 +244,10 @@
 	};
 
 	Transformacion.prototype.exec = function( r, g, b){
-		if ( r == g && r == b) // B&N
-			return this.func(r);
-		else // Color
 		if ( $.isArray( this.func ) )
-			return { r: this.func.r(r) , g:this.func.g(g) , b:this.func.b(b) };
+			return { r: Math.min(255,this.func.r(r)) , g:Math.min(255,this.func.g(g)) , b:Math.min(255,this.func.b(b)) };
 		else
-			return { r: this.func(r) , g:this.func(g) , b:this.func(b) };
+			return { r: Math.min(255,this.func(r)) , g:Math.min(255,this.func(g)) , b:Math.min(255,this.func(b)) };
 	}
 
 	// ************************
@@ -317,13 +315,34 @@
 		},
 		"transformacion":  {
 			nom: "Transformacion",
-			require: [ $('<input>').attr("name","factor").attr("placeholder","Factor").attr("title","s = r ^ factor").attr("value","1.05") ],
+			require: [ 
+				$('<select></select>').attr("name","pre-trans")
+					.append( $('<option></option>').attr("value","fact").html("Usar factor ->") )
+					.append( $('<option></option>').attr("value","1").html("1") ) 
+					.append( $('<option></option>').attr("value","2").html("2") ),
+				$('<input>').attr("name","factor").attr("placeholder","Factor")
+					.attr("title","s = r ^ factor")
+					.attr("value","1.05"),
+				$('<span></span>').html(" Blanco y Negro").prepend(
+					$('<input>').attr("name","byn").attr("type","checkbox"))
+			],
 			exec: function(pdi,params,trans) {
 				var factor = 1;
-				if ( params && $.isNumeric(params[0].value) ) factor = params[0].value;
+				if ( params ) {
+					if ( params[0].value == "fact" && $.isNumeric(params[1].value) ) factor = params[1].value;
+					else if ( params[0].value == "some") factor = 1;
+					else if ( params[0].value == "someOther" ) factor = 1;
+
+					if ( params[2] && params[2].value == "on" ) {
+						pdi.require("blanco_negro");
+						pdi.dispose();
+						console.log("Blanco y negro");
+					}
+				}
 
 				if ( !trans ) trans = new Transformacion(factor);
 
+				console.log("Transformando");
 				pdi.loop(function(r,g,b){
 					return trans.exec(r,g,b);
 				});
