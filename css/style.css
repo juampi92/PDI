@@ -1,0 +1,16 @@
+body {
+	margin: auto;
+	width: 95%;
+}
+
+#menu {
+	margin: 0 auto 50px auto;
+}
+
+canvas {
+	border: 1px solid black;
+}
+
+#buffer {
+	display:none;
+}
