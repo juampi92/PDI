@@ -8,16 +8,17 @@
 		<link rel="shortcut icon" href="../assets/favicon.ico">
 
 		<title>PDI using HTML5</title>
-
-		<link href="style.css" rel="stylesheet">
+	
+		<link href="css/bootstrap.min.css" rel="stylesheet">
+		<link href="css/style.css" rel="stylesheet">
 	</head>
 	<body>
 		<div id="menu">
 			<h3>Imagen fuente</h3>
 			<select name="imgsource">
-				<option value="../assets/sample1.jpg">sample1</option>
-				<option value="../assets/sample2.jpg">sample2</option>
-				<option value="../assets/sample3.jpg">sample3</option>
+				<option value="assets/sample1.jpg">sample1</option>
+				<option value="assets/sample2.jpg">sample2</option>
+				<option value="assets/sample3.jpg">sample3</option>
 			</select>
 			<input type="text" placeholder="URL to image" name="imgremotesource">
 			<button name="load">Cargar</button>
@@ -30,8 +31,8 @@
 		</div>
 		<canvas id="canvas"></canvas>
 
-		<script src="../js/jquery.min.js"></script>
-		<script src="getimagedata.min.js"></script>
-		<script src="script.js"></script>
+		<script src="js/jquery.min.js"></script>
+		<script src="js/getimagedata.min.js"></script>
+		<script src="js/script.js"></script>
 	</body>
 </html>
