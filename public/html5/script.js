@@ -175,11 +175,17 @@
 		this.source = source;
 		this.events = {};
 		this.dest = null;
+
+		return this;
 	};
 
 	PDI.prototype.clone = function(){
 		this.dest = this.source.clone();
-	}
+	};
+
+	PDI.prototype.dispose = function(){
+		this.source = this.dest;
+	};
 
 	PDI.prototype.loop = function(callback , onEnd){
 		this.clone();
@@ -209,44 +215,120 @@
 		this.events[trigger] = callback;
 	};
 
+	PDI.prototype.require = function( effectStr , params ){
+		efectos[effectStr].exec(this , params);
+	};
+
+	PDI.prototype.run = function( effectStr , params ) {
+		efectos[effectStr].exec(this , params);
+		this.render();
+	};
+
 	PDI.prototype.render = function(){
 		MyCanvas.renderImg(this.dest);
 	};
 
 	// ************************
-	//  	Trans
+	//  	Transformaciones
+	// ************************
+
+	function Transformacion( constructor ){
+		this.func = null;
+		if ( $.isNumeric(constructor) ) {
+			this.func = function(c){
+				return Math.pow(c,constructor); /// s = c * r^y ( c = 1)
+			};
+		} else 
+			this.func = constructor;
+	};
+
+	Transformacion.prototype.exec = function( r, g, b){
+		if ( r == g && r == b) // B&N
+			return this.func(r);
+		else // Color
+		if ( $.isArray( this.func ) )
+			return { r: this.func.r(r) , g:this.func.g(g) , b:this.func.b(b) };
+		else
+			return { r: this.func(r) , g:this.func(g) , b:this.func(b) };
+	}
+
+	// ************************
+	//  	Efectos
 	// ************************
 
 	var efectos = {
-		"negativo": function(pdi , callback){
-			pdi.loop(function(r,g,b,x,y){
-				return { r: 255-r, g: 255-g , b: 255-b };
-			},function(){
-				if ( callback ) callback();
-			});
-			return;
+		"negativo": {
+			nom: "Negativo",
+			require: null,
+			exec: function(pdi){
+				var trans = new Transformacion(function(c){ return 255-c;});
+				pdi.loop(function(r,g,b){
+					return trans.exec(r,g,b);
+				});
+				return;
+			}
 		},
-		"blanco_negro": function(pdi ,callback){
-			pdi.loop(function(r,g,b,x,y){
-				var iluminancia = (0.2126*r) + (0.7152*g) + (0.0722*b);
-				return { r: iluminancia, g: iluminancia , b: iluminancia };
-			},function(){
-				if ( callback ) callback();
-			});
-			return;
+		"blanco_negro":  {
+			nom: "Blanco y Negro",
+			require: null,
+			exec: function(pdi){
+				pdi.loop(function(r,g,b,x,y){
+					var iluminancia = (0.2126*r) + (0.7152*g) + (0.0722*b);
+					return { r: iluminancia, g: iluminancia , b: iluminancia };
+				});
+				return;
+			}
 		},
-		"histograma": function(pdi){
-			efectos["blanco_negro"](pdi);
+		"histograma_ByN":  {
+			nom: "Histograma Blanco y Negro",
+			require: null,
+			exec: function(pdi){
+				pdi.require("blanco_negro");
 
-			var histograma = new Array(256);
-			for (var i = 0; i < histograma.length; i++)
-				histograma[i] = 0;
+				pdi.dispose();
 
-			pdi.loop(function(b){
-				histograma[b]++;
-			});
-			console.log(histograma);
-		}
+				var histograma = new Array(256);
+				for (var i = 0; i < histograma.length; i++)
+					histograma[i] = 0;
+
+				pdi.loop(function(b){
+					histograma[b]++;
+				});
+				console.log(histograma);
+				return histograma;
+			}
+		},
+		"histograma_color":  {
+			nom: "Histograma a Color",
+			require: null,
+			exec: function(pdi){
+				var histograma = {r:new Array(256),g:new Array(256),b:new Array(256)};
+				for (var i = 0; i < histograma.r.length; i++)
+					histograma.r[i] = histograma.g[i] = histograma.b[i] = 0;
+
+				pdi.loop(function(r,g,b){
+					histograma.r[r]++;
+					histograma.g[g]++;
+					histograma.b[b]++;
+				});
+				console.log(histograma);
+				return histograma;
+			}
+		},
+		"transformacion":  {
+			nom: "Transformacion",
+			require: [ $('<input>').attr("name","factor").attr("placeholder","Factor").attr("title","s = r ^ factor").attr("value","1.05") ],
+			exec: function(pdi,params,trans) {
+				var factor = 1;
+				if ( params && $.isNumeric(params[0].value) ) factor = params[0].value;
+
+				if ( !trans ) trans = new Transformacion(factor);
+
+				pdi.loop(function(r,g,b){
+					return trans.exec(r,g,b);
+				});
+			}
+		},
 	}
 
 	// ************************
@@ -259,13 +341,15 @@
 			$btn: $menu.find('button[name="load"]')
 		},
 		effects = {
+			$form: $menu.find('form'),
 			$select: $menu.find('select[name="effect"]'),
 			$btn: $menu.find('button[name="render"]')
 		};
 
 	// Completar efectos
+	effects.$select.append( $('<option></option>').val("").html(" -- Elegir efecto --").attr("selected","selected") );
 	for ( var key in efectos )
-		effects.$select.append( $('<option></option>').val(key).html(key) );
+		effects.$select.append( $('<option></option>').val(key).html(efectos[key].nom) );
 
 	var pdi;
 	var imag;
@@ -288,12 +372,22 @@
 
 	});
 
+	effects.$select.on('change',function(){
+		if ( effects.$select.val() == "" ) {
+			effects.$btn.attr("disabled",true);
+			return;
+		} else effects.$btn.attr("disabled",false);
+		effects.$form.empty();
+		if ( efectos[effects.$select.val()].require == null ) return;
+		var appends = efectos[effects.$select.val()].require;
+		appends.forEach(function(e){
+			effects.$form.append(e);
+		});
+	});
+
 	effects.$btn.on('click',function(){
-
-		pdi = new PDI(imag);
-		pdi.on("end",function(){pdi.render()});
-		efectos[effects.$select.val()](pdi);
-
+		if ( effects.$select.val() == "" ) return;
+		new PDI(imag).run( effects.$select.val() , effects.$form.serializeArray() );
 	});
 
 })();
