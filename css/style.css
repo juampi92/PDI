@@ -22,3 +22,27 @@ canvas {
 #opciones h4 {
 	color: #888;
 }
+
+#menu li.current {
+	margin-top:-10px;
+	margin-bottom: -10px;
+}
+#menu li.current a {
+	display:inline-block;
+}
+#menu li.current img {
+	border: 1px solid #555;
+	padding:1px;
+}
+
+.form-control.active {
+	border: 3px solid #FC0;
+}
+
+form {
+	padding:4px 5px;
+}
+
+form .form-control {
+	margin-right:5px;
+}

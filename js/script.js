@@ -44,6 +44,7 @@
 		this.src = src;
 		this.imgData = {};
 		this.width = this.height = 0;
+		this.onEvents = {};
 	};
 
 	Imagen.prototype.load = function( onload , remote ) {
@@ -52,6 +53,7 @@
 		this.img.onload = function(){
 			self.getImageData(onload);
 			self.loaded = true;
+			self.trigger("load");
 		};
 		
 		if ( ! remote ) {
@@ -65,10 +67,11 @@
 					image.onload = self.img.onload;
 					self.img = image;
 					self.img.onload();
+					self.trigger("remote");
 				},
 				error: function(xhr, text_status){
 				  // Handle your error here
-				  console.log("Error:",xhr,text_status);
+				  self.trigger("error",xhr,text_status);
 				}
 			});
 		};
@@ -178,6 +181,14 @@
 		return hex;
 	};
 
+	Imagen.prototype.on = function( event, callback ){
+		this.onEvents[event] = callback;
+	};
+
+	Imagen.prototype.trigger = function(event , param1, param2, param3){
+		if ( this.onEvents[event] ) this.onEvents[event](param1,param2,param3);
+	};
+
 	// ************************
 	// 		PDI
 	// ************************
@@ -228,7 +239,7 @@
 	};
 
 	PDI.prototype.snapshot = function( name ){ // Render type
-		addSnapshot( this.dest.getBase64() , name );
+		ui.addSnapshot( this.dest.getBase64() , name );
 	}
 
 	PDI.prototype.require = function( effectStr , params ){
@@ -374,81 +385,153 @@
 	// ************************
 	// 		UI
 	// ************************
-	var $menu = $('nav#menu'),
-		opts = {
+	var $menu = $('nav#menu');
+
+	var ui = {
+		img: null,
+		pdi: null,
+		opts: {
 			$despliegue: $menu.find('a[role="opt"]'),
 			$container: $menu.find('#opciones'),
-			$pasos: $menu.find('#pasos')
+			$pasos: $menu.find('#pasos'),
+			sector: { $fuente: null, $efecto: null },
+			$current_div: $menu.find('.current'),
+			$reset: $menu.find('a[rol="reset"]')
 		},
-		source = {
+		source: {
 			$select: $menu.find('select[name="imgsource"]'),
 			$input: $menu.find('input[name="imgremotesource"]'),
 			$btn: $menu.find('button[name="load"]')
 		},
-		effects = {
+		effects: {
 			$form: $menu.find('form'),
 			$select: $menu.find('select[name="effect"]'),
 			$btn: $menu.find('button[name="render"]')
-		};
+		},
+		$current: $menu.find('img'),
+		init: function(){
+			// Inicializar selectores
+			this.opts.sector.$fuente = this.opts.$container.find('div[sector="fuente"]');
+			this.opts.sector.$efecto = this.opts.$container.find('div[sector="efecto"]');
 
-	// Completar efectos
-	effects.$select.append( $('<option></option>').val("").html(" -- Elegir efecto --").attr("selected","selected") );
-	for ( var key in efectos )
-		effects.$select.append( $('<option></option>').val(key).html(efectos[key].nom) );
+			// Completar efectos
+			this.effects.$select.append( $('<option></option>').val("").html(" -- Elegir efecto --").attr("selected","selected") );
+			for ( var key in efectos )
+				this.effects.$select.append( $('<option></option>').val(key).html(efectos[key].nom) );
 
-	opts.$despliegue.on('click',function(e){
-		e.preventDefault();
-		var $li = $(this).parent();
-		if ( opts.$despliegue.parent().hasClass("active") ) {
-			$li.removeClass("active");
-			opts.$container.slideUp("slow");
-		} else {
-			$li.addClass("active");
-			opts.$container.slideDown("slow");
+			// Eventos:
+			this.setEvents();
+		},
+		setEvents: function(){
+			var self = this;
+			// Options Slide
+			this.opts.$despliegue.on('click',function(e){
+				e.preventDefault();
+				self.optionsSlide();
+			});
+
+			this.source.$input.on('change',function(){
+				if ( self.source.$input.val() == "" ) {
+					self.source.$select.addClass("active");
+					self.source.$input.removeClass("active");
+				} else {
+					self.source.$input.addClass("active");
+					self.source.$select.removeClass("active");
+				}
+			});
+
+			this.source.$btn.on('click',function(){
+				self.source.$btn.html(" ... Cargando ...").attr("disabled", true);
+
+				// Acá en el aire. Desp se usa la clase PDI
+				var remote = false;
+				if ( self.source.$input.val() != "" ) {
+					self.img = new Imagen( self.source.$input.val());
+					remote = true;
+				} else {
+					self.img = new Imagen( self.source.$select.val() );
+				}
+				
+				self.img.load(function(i){
+					MyCanvas.renderImg(i);
+					self.imagenLoaded();
+				}, remote);
+
+				self.img.on('error',function(xhr,text){
+					alert("Ocurrio un error procesando lo solicitado. "+text);
+					self.source.$btn.html("Cargar").attr("disabled", false);
+				});
+
+			});
+
+			this.opts.$reset.on('click',function(e){
+				e.preventDefault();
+				self.imagenRemoved();
+			});
+
+			ui.effects.$select.on('change',function(){
+				if ( self.effects.$select.val() == "" ) {
+					self.effects.$btn.attr("disabled",true);
+					return;
+				} else self.effects.$btn.attr("disabled",false);
+				self.effects.$form.empty();
+				if ( efectos[self.effects.$select.val()].require == null ) return;
+				var appends = efectos[self.effects.$select.val()].require;
+				appends.forEach(function(e){
+					self.effects.$form.append(e.addClass("form-control"));
+				});
+			});
+
+			ui.effects.$btn.on('click',function(){
+				self.emptySnapshot();
+				if ( self.effects.$select.val() == "" ) return;
+				new PDI(self.img).run( self.effects.$select.val() , self.effects.$form.serializeArray() );
+			});
+
+		},
+		imagenLoaded: function(){
+			this.source.$btn.html("Cargar").attr("disabled", false);
+			this.opts.sector.$fuente.hide();
+			this.opts.sector.$efecto.show();
+
+			this.opts.$current_div.show();
+
+			this.$current.attr("src", this.img.src );
+		},
+		imagenRemoved: function(){
+			this.opts.sector.$fuente.show();
+			this.opts.sector.$efecto.hide();
+
+			this.opts.$current_div.hide();
+
+			this.$current.attr("src","");
+
+			this.img = null;
+			this.pdi = null;
+		},
+		optionsSlide: function( activar ) {
+			var $li = this.opts.$despliegue.parent();
+			if ( activar == undefined ) activar = !$li.hasClass("active");
+
+			if ( activar ) {
+				$li.addClass("active");
+				this.opts.$container.slideDown("slow");
+			} else {
+				$li.removeClass("active");
+				this.opts.$container.slideUp("slow");
+			}
+		},
+		addSnapshot: function(href,name){
+			this.opts.$pasos.append( 
+				$('<li></li>').append(
+					$('<a></a>').attr("href",href).html(name).attr("target","_blank")
+				)
+			);
+		},
+		emptySnapshot: function(){
+			this.opts.$pasos.empty();
 		}
-	});
-
-	var pdi;
-	var imag;
-
-	source.$btn.on('click',function(){
-		source.$btn.html(" ... Cargando ...").attr("disabled", true);
-
-		// Acá en el aire. Desp se usa la clase PDI
-		var remote = false;
-		if ( source.$input.val() != "" ) {
-			imag = new Imagen(source.$input.val());
-			remote = true;
-		} else {
-			imag = new Imagen( source.$select.val() );
-		}
-		imag.load(function(i){
-			MyCanvas.renderImg(i);
-			source.$btn.html("Cargar").attr("disabled", false);
-		}, remote);
-
-	});
-
-	effects.$select.on('change',function(){
-		if ( effects.$select.val() == "" ) {
-			effects.$btn.attr("disabled",true);
-			return;
-		} else effects.$btn.attr("disabled",false);
-		effects.$form.empty();
-		if ( efectos[effects.$select.val()].require == null ) return;
-		var appends = efectos[effects.$select.val()].require;
-		appends.forEach(function(e){
-			effects.$form.append(e.addClass("form-control"));
-		});
-	});
-
-	effects.$btn.on('click',function(){
-		emptySnapshot();
-		if ( effects.$select.val() == "" ) return;
-		new PDI(imag).run( effects.$select.val() , effects.$form.serializeArray() );
-	});
-
-	function addSnapshot(href,name){ opts.$pasos.append( $('<li></li>').append($('<a></a>').attr("href",href).html(name).attr("target","_blank") ) ); };
-	function emptySnapshot(){ opts.$pasos.empty(); };
+	}; // ./ ui
+	ui.init();
 
 })();
