@@ -8,9 +8,17 @@ body {
 }
 
 canvas {
+	margin-top: 75px;
 	border: 1px solid black;
 }
 
-#buffer {
-	display:none;
+#opciones {
+	display:block;
+	padding: 0 10% 20px;
+	width:100%;
+	background-color: #080808;
+}
+
+#opciones h4 {
+	color: #888;
 }
