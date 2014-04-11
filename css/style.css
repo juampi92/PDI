@@ -23,6 +23,15 @@ canvas {
 	color: #888;
 }
 
+#slideUp-footer {
+	width:100%;
+	height: 10px;
+	background-color: #222;
+	cursor: n-resize;
+	position: absolute; bottom: 0; left: 0;
+	display:block;
+}
+
 #menu li.current {
 	margin-top:-10px;
 	margin-bottom: -10px;

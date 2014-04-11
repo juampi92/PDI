@@ -270,6 +270,7 @@
 	// ************************
 
 	function Transformacion_color( constructor ){
+		this._lut = false;
 		this.func = null;
 		if ( $.isNumeric(constructor) ) {
 			var cte = (255 / Math.pow(255,constructor));
@@ -280,7 +281,18 @@
 			this.func = constructor;
 	};
 
+	Transformacion_color.prototype.lut = function( lut ){
+		this._lut = true;
+		this.func = lut;
+	};
+
 	Transformacion_color.prototype.exec = function( r, g, b){
+		if ( this._lut )
+			if ( this.func.length != 256 )
+				return { r: this.func.r[r] , g:this.func.g[g] , b:this.func.b[b] };
+			else
+				return { r: this.func[r] , g:this.func[g] , b:this.func[b] };
+		else 
 		if ( $.isArray( this.func ) )
 			return { r: this.func.r(r) , g:this.func.g(g) , b:this.func.b(b) };
 		else
@@ -333,28 +345,35 @@
 		return this.histograma;
 	};
 
-	Histograma.prototype.normalizar = function(){
+	Histograma.prototype.procesar = function(funcion){
 		if ( this.histograma == null ) this.calcular();
 
 		if ( this.color ) {	
 			this.lut = {r:new Array(256),g:new Array(256),b:new Array(256)};
-			this._normalizar_simple(this.histograma.r , this.lut.r);
-			this._normalizar_simple(this.histograma.g , this.lut.g);
-			this._normalizar_simple(this.histograma.b , this.lut.b);
+			funcion(this.histograma.r , this.lut.r);
+			funcion(this.histograma.g , this.lut.g);
+			funcion(this.histograma.b , this.lut.b);
 		} else {
 			this.lut = new Array(256);
-			this._normalizar_simple(this.histograma , this.lut );
+			funcion(this.histograma , this.lut );
 		}
 	};
 
-	Histograma.prototype._normalizar_simple = function( histograma , lut ){
+	Histograma.prototype.ecualizar = function(){
+		var self = this;
+		this.procesar(function(h,l){self._ecualizar_simple(h,l)});
+	};
+
+	Histograma.prototype._ecualizar_simple = function( histograma , lut ){
 		var sum = 0,
 			pixelCount = this.img.width * this.img.height;
 
-		for ( var i = 0; i < 256; ++i ){
-		    sum += histogram[i];
-		    lut[i] = sum * 255 / pixelCount;
-		}
+		lut[0] = histograma[0];
+		for ( var i = 1; i < 256; ++i )
+		    lut[i] = lut[i-1] + histograma[i];
+
+		for ( var i = 0; i < 256; i++)
+			lut[i] = Math.floor(lut[i] * 255 / pixelCount);
 	};
 
 	Histograma.prototype.getLUT = function( r , g , b  ){
@@ -456,26 +475,34 @@
 				return pdi.source.histograma;
 			}
 		},
-		"histograma_normal":  {
-			nom: "Normalizacion Histograma",
+		"histograma_ecual":  {
+			nom: "Histograma Ecualizacion",
 			require: [
 				$('<span></span>').html(" Blanco y Negro").prepend(
 					$('<input>').attr("name","byn").attr("type","checkbox"))
 			],
 			exec: function(pdi,params){
-				var hist = "histograma_color",
-					color = true;
-				if ( params[0] && params[0].value == "on" ) { hist = "histograma_ByN"; color = false;}
+				var color = true;
+				if ( params[0] && params[0].value == "on" ) {
+					color = false;
+					
+				}
 
-				var histograma = pdi.require(hist);
+				pdi.require("histograma",params);
 				//pdi.dispose();
 
+				pdi.source.histograma.ecualizar();
+
+				var trans = new Transformacion_color(null);
+				trans.lut(pdi.source.histograma.lut);
+
 				pdi.loop(function(r,g,b){
-					histograma.r[r]++;
-					histograma.g[g]++;
-					histograma.b[b]++;
+					return trans.exec(r,g,b);
 				});
-				return histograma;
+
+				console.log(pdi.source.histograma.lut);
+
+				return pdi.source.histograma.lut;
 			}
 		},
 		"transformacion_color":  {
@@ -599,6 +626,11 @@
 				e.preventDefault();
 				self.optionsSlide();
 			});
+			this.opts.$container.find('#slideUp-footer').on('click',function(e){
+				e.preventDefault();
+				self.optionsSlide(false);
+			});
+
 
 			this.source.$input.on('change',function(){
 				if ( self.source.$input.val() == "" ) {
