@@ -1,7 +1,5 @@
 (function(){
 
-	var $buffer = $('#buffer');
-
 	// ************************
 	// 		Canvas
 	// ************************
@@ -35,17 +33,30 @@
 	};
 	MyCanvas.init();
 
-	// ************************
-	// 		Imagen
-	// ************************
+	// ************************************************
+	// 						Imagen
+	// ************************************************
+
 	function Imagen( src ){
 		this.img = new Image();
 		this.loaded = false;
 		this.src = src;
-		this.imgData = {};
+		this.imgData = null;
 		this.width = this.height = 0;
 		this.histograma = null;
 		this.onEvents = {};
+
+		return this;
+	};
+
+	Imagen.prototype.create = function( width , height ){
+		// Create empty image
+		var canvas = document.createElement('canvas');
+		
+		this.width = this.img.width = canvas.width = width;
+		this.height = this.img.height = canvas.height = height;
+
+		this.imgData = canvas.getContext('2d').createImageData(width,height);
 	};
 
 	Imagen.prototype.load = function( onload , remote ) {
@@ -165,6 +176,7 @@
 		this.imgData.data[pixBase] = color.r;
 		this.imgData.data[pixBase+1] = color.g;
 		this.imgData.data[pixBase+2] = color.b;
+		this.imgData.data[pixBase+3] = 255;
 	};
 
 	Imagen.prototype.HexToRGB = function(hex){
@@ -199,9 +211,9 @@
 		if ( this.onEvents[event] ) this.onEvents[event](param1,param2,param3);
 	};
 
-	// ************************
-	// 		PDI
-	// ************************
+	// ************************************************
+	// 						PDI
+	// ************************************************
 
 	function PDI( source ){
 		this.source = source;
@@ -220,7 +232,7 @@
 		this.dest = null;
 	};
 
-	PDI.prototype.loop = function(callback , onEnd){
+	PDI.prototype.loop = function(callback){ // Loop parejo
 		this.clone();
 
 		var pixels_source = this.source.imgData.data,
@@ -236,7 +248,22 @@
     	});
     	
 		if ( this.events["end"] ) this.events["end"]();
-		if ( onEnd ) onEnd();
+		return;
+	};
+
+	PDI.prototype.loop_trans = function(callback){ // Loop parejo
+		var self = this;
+		this.dest = new Imagen();
+		this.dest.create(this.source.width,this.source.height);
+
+    	this.source.loop(function(i,x,y,r,g,b){
+    		var pos = callback(r,g,b,x,y);
+			if ( !pos ) pos = {r:r,g:g,b:b,x:x,y:y};
+
+			self.dest.setPixel(pos.x,pos.y,{r:pos.r,g:pos.g,b:pos.b});
+    	});
+
+		if ( this.events["end"] ) this.events["end"]();
 		return;
 	};
 
@@ -265,9 +292,9 @@
 		MyCanvas.renderImg(this.dest);
 	};
 
-	// ************************
-	//  	Transformaciones
-	// ************************
+	// ************************************************
+	//  				Transformaciones
+	// ************************************************
 
 	function Transformacion_color( constructor ){
 		this._lut = false;
@@ -299,9 +326,19 @@
 			return { r: this.func(r) , g:this.func(g) , b:this.func(b) };
 	}
 
-	// ************************
-	//  	Histograma
-	// ************************
+	// ----------
+
+	function Transformacion_pixel( constructor ){
+		this.func = constructor;
+	};
+
+	Transformacion_pixel.prototype.exec = function(r,g,b,x,y){
+		return this.func(r,g,b,x,y);
+	}
+
+	// ************************************************
+	//  					Histograma
+	// ************************************************
 
 	function Histograma( imagen ){
 		this.img = imagen;
@@ -426,9 +463,9 @@
       	context.stroke();
 	};
 
-	// ************************
-	//  	Efectos
-	// ************************
+	// ************************************************
+	//  					Efectos
+	// ************************************************
 
 	var efectos = {
 		"negativo": {
@@ -528,7 +565,6 @@
 					if ( params[2] && params[2].value == "on" ) {
 						pdi.require("blanco_negro");
 						pdi.dispose();
-						console.log("Blanco y negro");
 					}
 				}
 
@@ -539,42 +575,42 @@
 				});
 			}
 		},
-		/*"transformacion_punto":  {
-			nom: "Transformacion de Punto",
+		"transformacion_rotacion":  {
+			nom: "Rotacion",
 			require: [ 
-				$('<select></select>').attr("name","pre-trans")
-					.append( $('<option></option>').attr("value","zoomin").html("Zoom In") )
-					.append( $('<option></option>').attr("value","zoomout").html("Zoom Out") )
-					.append( $('<option></option>').attr("value","rotacion").html("Rotacion") )
-					.append( $('<option></option>').attr("value","traslacion").html("Traslacion") )
-					,
-				$('<input>').attr("name","factor").attr("placeholder","Factor")
-					.attr("value","1.5"),
+				$('<input>').attr("name","grado").attr("placeholder","Grado")
+					.attr("value","90"),
 				$('<span></span>').html(" Blanco y Negro").prepend(
 					$('<input>').attr("name","byn").attr("type","checkbox"))
 			],
 			exec: function(pdi,params,trans) {
-				var factor = 1;
+				var grado = 90;
 				if ( params ) {
-					if ( params[0].value == "fact" && $.isNumeric(params[1].value) ) factor = params[1].value;
-					else if ( params[0].value == "umbral" && $.isNumeric(params[1].value) ) factor = function(c){
-						return ( c > params[1].value ) ? 255 : 0;
-					};
-
-					if ( params[2] && params[2].value == "on" ) {
+					if ( $.isNumeric(params[0].value) ) grado = params[0].value;
+					if ( params[1] && params[1].value == "on" ) {
 						pdi.require("blanco_negro");
 						pdi.dispose();
-						console.log("Blanco y negro");
 					}
 				}
 
-				if ( !trans ) trans = new Transformacion_color(factor);
+				grado = (grado * Math.PI ) / 180; // To radians
 
-				pdi.loop(function(r,g,b){
-					return trans.exec(r,g,b);
+				var centroX = Math.floor(pdi.source.width / 2),
+					centroY = Math.floor(pdi.source.height / 2);
+
+				if ( !trans ) trans = new Transformacion_pixel(function(r,g,b,x,y){
+					var pixel = {
+						x: Math.floor( (x-centroX) * Math.cos(grado) - (y-centroY) * Math.sin(grado) + centroX),
+						y: Math.floor( (y-centroY) * Math.cos(grado) + (x-centroX) * Math.sin(grado) + centroY)
+					};
+					return {r:r,g:g,b:b,x:pixel.x,y:pixel.y};
+				});
+
+				pdi.loop_trans(function(r,g,b,x,y){
+					return trans.exec(r,g,b,x,y);
 				});
 			}
-		},*/
+		}
 	}
 
 	// ************************
