@@ -603,9 +603,10 @@
 			$select: $menu.find('select[name="effect"]'),
 			$btn: $menu.find('button[name="render"]')
 		},
-		$current: $menu.find('img'),
+		$current: null,
 		init: function(){
 			// Inicializar selectores
+			this.$current = this.opts.$reset.find('img');
 			this.opts.sector.$fuente = this.opts.$container.find('div[sector="fuente"]');
 			this.opts.sector.$efecto = this.opts.$container.find('div[sector="efecto"]');
 
