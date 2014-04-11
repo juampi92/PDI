@@ -372,7 +372,7 @@
 		if ( this.histograma == null ) this.calcular();
 
 		var canvas = document.createElement('canvas');
-		canvas.width = ( this.color ) ? 256 * 3 : 256;
+		canvas.width = ( this.color ) ? 257 * 3 : 256;
 		canvas.height = 400;
 
 		var context = canvas.getContext('2d');
@@ -380,8 +380,10 @@
 		var factor = ( canvas.height / this.histogramax );
 		if ( this.color ){
 			this._draw(this.histograma.r,'red', context , 0,canvas.height , factor );
-			this._draw(this.histograma.g,'green', context , 256,canvas.height , factor );
-			this._draw(this.histograma.b,'blue', context , 256*2,canvas.height , factor );
+			context.beginPath(); context.moveTo(256,0); context.lineTo(256,canvas.height); context.lineWidth = 1;context.strokeStyle = 'black'; context.stroke();
+			this._draw(this.histograma.g,'green', context , 257,canvas.height , factor );
+			context.beginPath(); context.moveTo(256*2,0); context.lineTo(256*2,canvas.height); context.strokeStyle = 'black'; context.stroke();
+			this._draw(this.histograma.b,'blue', context , 257*2,canvas.height , factor );
 		} else
 		this._draw(this.histograma,'black', context , 0,canvas.height , factor );
 
@@ -394,7 +396,7 @@
 
 	Histograma.prototype._draw = function( histograma , color , context , offsetX , maxY , factorY){
 		context.beginPath();
-		for ( var i = 0 ; i < 255 ; i++) {
+		for ( var i = 0 ; i < 256 ; i++) {
 			x = offsetX+i;
 			context.moveTo(x,maxY);
 			var h = histograma[i] * factorY;
