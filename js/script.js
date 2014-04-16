@@ -472,7 +472,7 @@
 			nom: "Negativo",
 			require: null,
 			exec: function(pdi){
-				var trans = new Transformacion_color(function(c){ return 255-c;});
+				var trans = new Transformacion_color(transformaciones.color.negativo);
 				pdi.loop(function(r,g,b){
 					return trans.exec(r,g,b);
 				});
@@ -557,10 +557,10 @@
 			exec: function(pdi,params,trans) {
 				var factor = 1;
 				if ( params ) {
-					if ( params[0].value == "fact" && $.isNumeric(params[1].value) ) factor = params[1].value;
-					else if ( params[0].value == "umbral" && $.isNumeric(params[1].value) ) factor = function(c){
-						return ( c > params[1].value ) ? 255 : 0;
-					};
+					if ( params[0].value == "fact" && $.isNumeric(params[1].value) ) 
+						factor = params[1].value;
+					else if ( params[0].value == "umbral" && $.isNumeric(params[1].value) ) 
+						factor = function(c){return transformacion.color.umbral(c,parseInt(params[1].value));};
 
 					if ( params[2] && params[2].value == "on" ) {
 						pdi.require("blanco_negro");
@@ -599,11 +599,7 @@
 					centroY = Math.floor(pdi.source.height / 2);
 
 				if ( !trans ) trans = new Transformacion_pixel(function(r,g,b,x,y){
-					var pixel = {
-						x: Math.floor( (x-centroX) * Math.cos(grado) - (y-centroY) * Math.sin(grado) + centroX),
-						y: Math.floor( (y-centroY) * Math.cos(grado) + (x-centroX) * Math.sin(grado) + centroY)
-					};
-					return {r:r,g:g,b:b,x:pixel.x,y:pixel.y};
+					return transformaciones.pixel.rotacion_origen(r,g,b,x,y,centroX,centroY,grado);
 				});
 
 				pdi.loop_trans(function(r,g,b,x,y){
@@ -612,6 +608,30 @@
 			}
 		}
 	}
+
+	// ************************
+	// 		Transformaciones
+	// ************************
+
+	var transformaciones = {
+		color: {
+			negativo: function(c){
+				return 255 - c;
+			},
+			unbral: function(c,umbralado){
+				return ( c > umbralado ) ? 255 : 0;
+			}
+		},
+		pixel: {
+			rotacion_origen: function(r,g,b,x,y,centroX,centroY,grado){
+				var pixel = {
+					x: Math.floor( (x-centroX) * Math.cos(grado) - (y-centroY) * Math.sin(grado) + centroX),
+					y: Math.floor( (y-centroY) * Math.cos(grado) + (x-centroX) * Math.sin(grado) + centroY)
+				};
+				return {r:r,g:g,b:b,x:pixel.x,y:pixel.y};
+			}
+		}
+	};
 
 	// ************************
 	// 		UI
