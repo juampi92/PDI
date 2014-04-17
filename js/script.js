@@ -337,6 +337,38 @@
 	}
 
 	// ************************************************
+	//  					Filtros
+	// ************************************************	
+
+	function Filtro(matriz , factor){
+		this.matrix = matriz;
+		this.w = matriz[0].length;
+		this.h = matriz.length;
+		this.center = [ (this.w-1) / 2 , (this.h-1) / 2];
+		this.factor = ( factor ) ? factor : false;
+	};
+
+	Filtro.prototype.exec = function( image , x , y ){
+		var sum = {r:0,g:0,b:0};
+		for ( var i = 0 ; i < this.w ; i++)
+			for ( var j = 0 ; j < this.h ; j++) {
+				var colores = image.getColor( x + i - this.center[0] , y + j - this.center[1] ),
+					filtro = this.matrix[i][j];
+
+				sum.r += filtro * colores.r;
+				sum.g += filtro * colores.g;
+				sum.b += filtro * colores.b;
+			}
+
+		if ( this.factor !== false ) {
+			sum.r /= this.factor;
+			sum.g /= this.factor;
+			sum.b /= this.factor;
+		}
+		return sum;
+	};
+
+	// ************************************************
 	//  					Histograma
 	// ************************************************
 
@@ -606,8 +638,100 @@
 					return trans.exec(r,g,b,x,y);
 				});
 			}
+		},
+		"filtro":{
+			nom: "Filtro",
+			require:  [ 
+				$('<select></select>').attr("name","filter")
+					.append( $('<option></option>').attr("value","base_blur").html("Desenfoque Base") )
+					.append( $('<option></option>').attr("value","gaussian_blur").html("Desenfoque Gaussiano") )
+					.append( $('<option></option>').attr("value","umbral").html("Umbralado (0-255)") )
+					,
+				$('<span></span>').html(" Blanco y Negro").prepend(
+					$('<input>').attr("name","byn").attr("type","checkbox"))
+			],
+			exec: function(pdi,params){
+				var filtro;
+				if ( params ) {
+					switch(params[0].value){
+						case "base_blur": filtro = filtros.desenfoque.base; break;
+						case "gaussian_blur": filtro = filtros.desenfoque.gaussiano; break;
+
+						default: break;
+					}
+					if ( params[1] && params[1].value == "on" ) {
+						pdi.require("blanco_negro");
+						pdi.dispose();
+					}
+				}
+
+				var f = new Filtro(filtro.matriz,filtro.factor);
+
+				pdi.loop(function(r,g,b,x,y){
+					return f.exec(pdi.source,x,y);
+				})
+			}
+		},
+		"bordes":{
+			nom: "Bordes",
+			require:  [ 
+				$('<select></select>').attr("name","filter")
+					.append( $('<option></option>').attr("value","base").html("Base") )
+					.append( $('<option></option>').attr("value","base_horizontal").html("Base Horizontal") )
+					.append( $('<option></option>').attr("value","base_vertical").html("Base Vertical") )
+					.append( $('<option></option>').attr("value","sobel_h").html("Sobel Horizontal") )
+					.append( $('<option></option>').attr("value","sobel_v").html("Sobel Vertical") )
+			],
+			exec: function(pdi,params){
+				var filtro;
+				if ( params )
+					filtro = filtros.bordes[params[0].value];
+				
+				if ( filtro == undefined ) filtro = filtros.bordes.base;
+
+				pdi.require("blanco_negro");
+				pdi.dispose();
+
+				var f = new Filtro(filtro.matriz,filtro.factor);
+
+				pdi.loop(function(r,g,b,x,y){
+					return f.exec(pdi.source,x,y);
+				});
+			}
 		}
 	}
+
+	// ************************
+	// 		Filtros
+	// ************************
+
+	var filtros = {
+		desenfoque: {
+			base: {
+				matriz:[ [1,1,1], [1,2,1], [1,1,1]], factor: 10
+			},
+			gaussiano:{
+				matriz:[ [0.05472157,0.11098164,0.05472157], [0.11098164,0.22508352,0.11098164], [0.05472157,0.11098164,0.05472157] ], factor: false
+			}
+		},
+		bordes: {
+			base: {
+				matriz:[ [-1,-1,-1], [-1,9,-1], [-1,-1,-1]], factor: false
+			},
+			base_horizontal: {
+				matriz:[ [0,0,0], [-1,1,0], [0,0,0]], factor: false
+			},
+			base_vertical: {
+				matriz:[ [0,-1,0], [0,1,0], [0,0,0]], factor: false
+			},
+			sobel_v: {
+				matriz:[ [-1,-2,-1], [0,0,0], [1,2,1]], factor: 4
+			},
+			sobel_h: {
+				matriz:[ [-1,0,1], [-2,0,2], [-1,0,1]], factor: 4
+			}
+		}
+	};
 
 	// ************************
 	// 		Transformaciones
