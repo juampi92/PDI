@@ -592,7 +592,7 @@
 					if ( params[0].value == "fact" && $.isNumeric(params[1].value) ) 
 						factor = params[1].value;
 					else if ( params[0].value == "umbral" && $.isNumeric(params[1].value) ) 
-						factor = function(c){return transformacion.color.umbral(c,parseInt(params[1].value));};
+						factor = function(c){return transformaciones.color.umbral(c,parseInt(params[1].value));};
 
 					if ( params[2] && params[2].value == "on" ) {
 						pdi.require("blanco_negro");
