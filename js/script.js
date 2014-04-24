@@ -212,6 +212,25 @@
 	};
 
 	// ************************************************
+	// 				Cargar Imagen desde Archivo
+	// ************************************************
+
+	function ImageFileLoad(src,callback){
+		//	Prevent any non-image file type from being read.
+		//if(!src.type.match(/image.*/)){
+		//	console.log("The dropped file is not an image: ", src.type);
+		//	return;
+		//}
+
+		//	Create our FileReader and run the results through the render function.
+		var reader = new FileReader();
+		reader.onload = function(e){
+			callback(e.target.result);
+		};
+		reader.readAsDataURL(src);
+	}
+
+	// ************************************************
 	// 						PDI
 	// ************************************************
 
@@ -645,7 +664,6 @@
 				$('<select></select>').attr("name","filter")
 					.append( $('<option></option>').attr("value","base_blur").html("Desenfoque Base") )
 					.append( $('<option></option>').attr("value","gaussian_blur").html("Desenfoque Gaussiano") )
-					.append( $('<option></option>').attr("value","umbral").html("Umbralado (0-255)") )
 					,
 				$('<span></span>').html(" Blanco y Negro").prepend(
 					$('<input>').attr("name","byn").attr("type","checkbox"))
@@ -657,7 +675,7 @@
 						case "base_blur": filtro = filtros.desenfoque.base; break;
 						case "gaussian_blur": filtro = filtros.desenfoque.gaussiano; break;
 
-						default: break;
+						default: return; break;
 					}
 					if ( params[1] && params[1].value == "on" ) {
 						pdi.require("blanco_negro");
@@ -776,6 +794,7 @@
 		source: {
 			$select: $menu.find('select[name="imgsource"]'),
 			$input: $menu.find('input[name="imgremotesource"]'),
+			$fileInput: $menu.find('input[name="imgfilesource"]'),
 			$btn: $menu.find('button[name="load"]')
 		},
 		effects: {
@@ -812,7 +831,6 @@
 				self.optionsSlide(false);
 			});
 
-
 			this.source.$input.on('change',function(){
 				if ( self.source.$input.val() == "" ) {
 					self.source.$select.addClass("active");
@@ -821,6 +839,22 @@
 					self.source.$input.addClass("active");
 					self.source.$select.removeClass("active");
 				}
+			});
+
+			this.source.$fileInput.on("change",function(e){
+				console.log("ASD");
+				ImageFileLoad(e.target.files[0],function(src){
+					self.img = new Imagen( src );
+					self.img.load(function(i){
+						MyCanvas.renderImg(i);
+						self.imagenLoaded();
+					},false);
+
+					self.img.on('error',function(xhr,text){
+						alert("Ocurrio un error procesando lo solicitado. "+text);
+						self.source.$btn.html("Cargar").attr("disabled", false);
+					});
+				});
 			});
 
 			this.source.$btn.on('click',function(){
