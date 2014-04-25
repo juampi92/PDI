@@ -177,31 +177,7 @@
 		this.imgData.data[pixBase+1] = color.g;
 		this.imgData.data[pixBase+2] = color.b;
 		this.imgData.data[pixBase+3] = 255;
-	};
-
-	Imagen.prototype.HexToRGB = function(hex){
-		// Check if rgb
-		if ( $.isArray(hex) ) return hex; // Ya es rgb
-
-		var rgb = {};
-		rgb.r = parseInt(hex.substr(1,2),16);
-		rgb.g = parseInt(hex.substr(3,2),16);
-		rgb.b = parseInt(hex.substr(5,2),16);
-
-		return rgb;
-	};
-
-	Imagen.prototype.RGBtoHex = function(rgb){
-		// Check if hex
-		if ( rgb.substr(0,1) == "#" ) return rgb; // Ya es hex
-
-		var hex = "#";
-		hex += rgb.r.toString(16);
-		hex += rgb.g.toString(16);
-		hex += rgb.b.toString(16);
-
-		return hex;
-	};
+	};	
 
 	Imagen.prototype.on = function( event, callback ){
 		this.onEvents[event] = callback;
@@ -211,16 +187,18 @@
 		if ( this.onEvents[event] ) this.onEvents[event](param1,param2,param3);
 	};
 
+	// 
+
 	// ************************************************
 	// 				Cargar Imagen desde Archivo
 	// ************************************************
 
 	function ImageFileLoad(src,callback){
 		//	Prevent any non-image file type from being read.
-		//if(!src.type.match(/image.*/)){
-		//	console.log("The dropped file is not an image: ", src.type);
-		//	return;
-		//}
+		if(!src.type.match(/image.*/)){
+			console.log("The dropped file is not an image: ", src.type);
+			return;
+		}
 
 		//	Create our FileReader and run the results through the render function.
 		var reader = new FileReader();
@@ -229,6 +207,118 @@
 		};
 		reader.readAsDataURL(src);
 	}
+
+	// ************************************************
+	// 					Color Helper
+	// ************************************************
+
+	var Color = {
+		HexToRGB: function(hex){
+			// Check if rgb
+			if ( $.isArray(hex) ) return hex; // Ya es rgb
+
+			var rgb = {};
+			rgb.r = parseInt(hex.substr(1,2),16);
+			rgb.g = parseInt(hex.substr(3,2),16);
+			rgb.b = parseInt(hex.substr(5,2),16);
+
+			return rgb;
+		},
+		RGBtoHex: function(rgb){
+			// Check if hex
+			if ( rgb.substr(0,1) == "#" ) return rgb; // Ya es hex
+
+			var hex = "#";
+			hex += rgb.r.toString(16);
+			hex += rgb.g.toString(16);
+			hex += rgb.b.toString(16);
+
+			return hex;
+		},
+		RGBtoHSV: function(r,g,b){
+			var hsv = {},
+				min, max, delta;
+
+			min = Math.min( r, g, b );
+			max = Math.max( r, g, b );
+			hsv.v = max;				// v
+
+			delta = max - min;
+
+			if( max != 0 )
+				hsv.s = delta / max;		// s
+			else {
+				// r = g = b = 0		// s = 0, v is undefined
+				hsv.s = 0;
+				hsv.h = -1;
+				return;
+			}
+
+			if( r == max )
+				hsv.h = ( g - b ) / delta;		// between yellow & magenta
+			else if( g == max )
+				hsv.h = 2 + ( b - r ) / delta;	// between cyan & yellow
+			else
+				hsv.h = 4 + ( r - g ) / delta;	// between magenta & cyan
+
+			hsv.h *= 60;				// degrees
+			if( hsv.h < 0 )
+				hsv.h += 360;
+
+			return hsv;
+		},
+		HSVtoRGB: function(h,s,v){
+			var rgb = {},
+				i,f,p,q,t;
+
+			if( s == 0 ) {
+				// achromatic (grey)
+				rgb.r = rgb.g = rgb.b = v;
+				return;
+			}
+
+			h /= 60;			// sector 0 to 5
+			i = Math.floor( h );
+			f = h - i;			// factorial part of h
+			p = v * ( 1 - s );
+			q = v * ( 1 - s * f );
+			t = v * ( 1 - s * ( 1 - f ) );
+
+			switch( i ) {
+				case 0:
+					rgb.r = v;
+					rgb.g = t;
+					rgb.b = p;
+					break;
+				case 1:
+					rgb.r = q;
+					rgb.g = v;
+					rgb.b = p;
+					break;
+				case 2:
+					rgb.r = p;
+					rgb.g = v;
+					rgb.b = t;
+					break;
+				case 3:
+					rgb.r = p;
+					rgb.g = q;
+					rgb.b = v;
+					break;
+				case 4:
+					rgb.r = t;
+					rgb.g = p;
+					rgb.b = v;
+					break;
+				default:		// case 5:
+					rgb.r = v;
+					rgb.g = p;
+					rgb.b = q;
+					break;
+			}
+			return rgb;
+		}
+	};
 
 	// ************************************************
 	// 						PDI
@@ -315,9 +405,10 @@
 	//  				Transformaciones
 	// ************************************************
 
-	function Transformacion_color( constructor ){
+	function Transformacion_color( constructor , color_junto ){
 		this._lut = false;
 		this.func = null;
+		this.color_junto = ( color_junto ) ? true : false;
 		if ( $.isNumeric(constructor) ) {
 			var cte = (255 / Math.pow(255,constructor));
 			this.func = function(c){
@@ -339,7 +430,9 @@
 			else
 				return { r: this.func[r] , g:this.func[g] , b:this.func[b] };
 		else 
-		if ( $.isArray( this.func ) )
+		if ( this.color_junto )
+			return this.func(r,g,b);
+		else if ( $.isArray( this.func ) )
 			return { r: this.func.r(r) , g:this.func.g(g) , b:this.func.b(b) };
 		else
 			return { r: this.func(r) , g:this.func(g) , b:this.func(b) };
@@ -626,6 +719,36 @@
 				});
 			}
 		},
+		"hsv":  {
+			nom: "Saturar",
+			require: [
+				$('<input>').attr("name","hue").attr("placeholder","Hue"),
+				$('<input>').attr("name","sat").attr("placeholder","Saturation"),
+				$('<input>').attr("name","val").attr("placeholder","Value")
+			],
+			exec: function(pdi,params,trans) {
+				console.log(params);
+				var H = ( $.isNumeric(params[0].value) ) ? params[0].value : 1,
+					S = ( $.isNumeric(params[1].value) ) ? params[1].value : 1,
+					V = ( $.isNumeric(params[2].value) ) ? params[2].value : 1;
+
+				console.log(H,S,V);
+				var factor = function(r,g,b){
+					var hsv = Color.RGBtoHSV(r,g,b);
+					hsv.h = hsv.h * H;
+					hsv.s = Math.min(100,hsv.s * S);
+					//hsv.v = Math.min(100,hsv.v * V);
+					var rgb = Color.HSVtoRGB(hsv.h,hsv.s,hsv.v);
+					return rgb;
+				}
+
+				if ( !trans ) trans = new Transformacion_color(factor,true);
+
+				pdi.loop(function(r,g,b){
+					return trans.exec(r,g,b);
+				});
+			}
+		},
 		"transformacion_rotacion":  {
 			nom: "Rotacion",
 			require: [ 
@@ -674,7 +797,6 @@
 					switch(params[0].value){
 						case "base_blur": filtro = filtros.desenfoque.base; break;
 						case "gaussian_blur": filtro = filtros.desenfoque.gaussiano; break;
-
 						default: return; break;
 					}
 					if ( params[1] && params[1].value == "on" ) {
@@ -684,7 +806,6 @@
 				}
 
 				var f = new Filtro(filtro.matriz,filtro.factor);
-
 				pdi.loop(function(r,g,b,x,y){
 					return f.exec(pdi.source,x,y);
 				})
@@ -716,6 +837,51 @@
 					return f.exec(pdi.source,x,y);
 				});
 			}
+		},
+		"bordes_all":{
+			nom: "Detectar Bordes",
+			require:  [],
+			exec: function(pdi,params){
+				pdi.require("blanco_negro");
+				pdi.dispose();
+
+				// Reducción de ruido
+				/*var canny = new Filtro(filtros.ruido.canny.matriz,filtros.ruido.canny.factor)
+				pdi.loop(function(r,g,b,x,y){
+					return canny.exec(pdi.source,x,y);
+				});
+				pdi.dispose();*/
+
+				var pdi_x = new PDI(pdi.source),
+					pdi_y = new PDI(pdi.source);
+
+				var f_x = new Filtro(filtros.bordes["sobel_h"].matriz,filtros.bordes["sobel_h"].factor),
+					f_y = new Filtro(filtros.bordes["sobel_v"].matriz,filtros.bordes["sobel_v"].factor);
+				
+				// Sobel X
+				pdi_x.loop(function(r,g,b,x,y){
+					return f_x.exec(pdi.source,x,y);
+				});
+				// Sobel Y
+				pdi_y.loop(function(r,g,b,x,y){
+					return f_y.exec(pdi.source,x,y);
+				});
+
+				// Gradiente o combinación de Ambos
+				pdi.loop(function(r,g,b,x,y){
+					var gradiente = Math.sqrt( Math.pow(pdi_x.dest.getColor(x,y).r,2) + Math.pow(pdi_y.dest.getColor(x,y).r,2)  ); // Pitagoras
+					return {r:gradiente,g:gradiente,b:gradiente};
+				});
+				pdi.dispose();
+
+				// Umbralado:
+				pdi.loop(function(r,g,b,x,y){
+					if ( r > 20 )
+						return {r:255,g:0,b:0};
+					else
+						return {r:0,g:0,b:0};
+				});
+			}
 		}
 	}
 
@@ -729,7 +895,13 @@
 				matriz:[ [1,1,1], [1,2,1], [1,1,1]], factor: 10
 			},
 			gaussiano:{
-				matriz:[ [0.05472157,0.11098164,0.05472157], [0.11098164,0.22508352,0.11098164], [0.05472157,0.11098164,0.05472157] ], factor: false
+				matriz:[
+					[2,4,5,4,2],
+					[4,9,12,9,4],
+					[5,12,15,12,5],
+					[4,9,12,9,4],
+					[2,4,5,4,2]
+				], factor: 159
 			}
 		},
 		bordes: {
