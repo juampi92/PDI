@@ -154,7 +154,7 @@
 		var context = canvas.getContext('2d');
 
 		context.putImageData(this.imgData,0,0);
-		return canvas.toDataURL();
+		return canvas.toDataURL('image/jpeg');
 	};
 
 	Imagen.prototype.getPixelBase = function(x,y){
