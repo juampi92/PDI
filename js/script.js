@@ -391,10 +391,14 @@
 		return ret;
 	};
 
-	PDI.prototype.run = function( effectStr , params ) {
-		efectos[effectStr].exec(this , params);
-		this.snapshot(efectos[effectStr].nom);
-		this.render();
+	PDI.prototype.run = function( effectStr , params , callback ) {
+		var self = this;
+		setTimeout(function(){
+			efectos[effectStr].exec(self , params);
+			self.snapshot(efectos[effectStr].nom);
+			self.render();
+			callback();
+		},0);
 	};
 
 	PDI.prototype.render = function(){
@@ -1123,9 +1127,9 @@
 
 				self.emptySnapshot();
 
-				new PDI(self.img).run( self.effects.$select.val() , self.effects.$form.serializeArray() );
-
-				self.effects.$btn.html("Render").attr("disabled", false);
+				new PDI(self.img).run( self.effects.$select.val() , self.effects.$form.serializeArray() , function(){
+					self.effects.$btn.html("Render").attr("disabled", false);
+				});
 			});
 
 		},
