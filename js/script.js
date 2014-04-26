@@ -158,7 +158,7 @@
 	};
 
 	Imagen.prototype.getPixelBase = function(x,y){
-		return ((y - 1) * (this.img.width * 4)) + ((x - 1) * 4);
+		return (y * (this.img.width * 4)) + (x * 4);
 	};
 
 	Imagen.prototype.getColor = function(x,y) {
@@ -251,7 +251,7 @@
 				// r = g = b = 0		// s = 0, v is undefined
 				hsv.s = 0;
 				hsv.h = -1;
-				return;
+				return hsv;
 			}
 
 			if( r == max )
@@ -461,7 +461,8 @@
 	};
 
 	Filtro.prototype.exec = function( image , x , y ){
-		var sum = {r:0,g:0,b:0};
+		var sum = {r:0,g:0,b:0},
+			fact = this.factor;
 		for ( var i = 0 ; i < this.w ; i++)
 			for ( var j = 0 ; j < this.h ; j++) {
 				var colores = image.getColor( x + i - this.center[0] , y + j - this.center[1] ),
@@ -472,10 +473,10 @@
 				sum.b += filtro * colores.b;
 			}
 
-		if ( this.factor !== false ) {
-			sum.r /= this.factor;
-			sum.g /= this.factor;
-			sum.b /= this.factor;
+		if ( fact !== false ) {
+			sum.r /= fact;
+			sum.g /= fact;
+			sum.b /= fact;
 		}
 		return sum;
 	};
@@ -727,12 +728,10 @@
 				$('<input>').attr("name","val").attr("placeholder","Value")
 			],
 			exec: function(pdi,params,trans) {
-				console.log(params);
 				var H = ( $.isNumeric(params[0].value) ) ? params[0].value : 1,
 					S = ( $.isNumeric(params[1].value) ) ? params[1].value : 1,
 					V = ( $.isNumeric(params[2].value) ) ? params[2].value : 1;
 
-				console.log(H,S,V);
 				var factor = function(r,g,b){
 					var hsv = Color.RGBtoHSV(r,g,b);
 					hsv.h = hsv.h * H;
@@ -880,6 +879,51 @@
 						return {r:255,g:0,b:0};
 					else
 						return {r:0,g:0,b:0};
+				});
+			}
+		},
+		"tiltshift":{
+			nom: "Tilt-Shift",
+			require:  [ 
+				$('<input>').attr("name","sat").attr("placeholder","Saturacion"),
+				$('<input>').attr("name","blurpos").attr("placeholder","Posicion Blur %")
+			],
+			exec: function(pdi,params){
+				var perc,sat;
+				// Saturacion:
+				var sat = ( $.isNumeric(params[0].value) ) ? params[0].value : 1.9,
+					perc = ( $.isNumeric(params[1].value) ) ? Math.max(0,Math.min(100,params[1].value)) : 80;
+
+				var factor = function(r,g,b){ // Buscar forma más efectiva
+					var hsv = Color.RGBtoHSV(r,g,b);
+					hsv.s = Math.min(100,hsv.s * sat);
+					var rgb = Color.HSVtoRGB(hsv.h,hsv.s,hsv.v);
+					return rgb;
+				}
+
+				trans = new Transformacion_color(factor,true);
+				pdi.loop(function(r,g,b){
+					return trans.exec(r,g,b);
+				});
+				pdi.dispose();
+
+				// --------------------
+
+				// Desenfoque
+				var f = new Filtro(filtros.desenfoque.gaussiano.matriz,filtros.desenfoque.gaussiano.factor);
+
+				var y_pixel = (pdi.source.height*perc/100),
+					y_min = ( perc > 50 ) ? pdi.source.height - y_pixel : y_pixel;
+					factor_blur = function(y){
+						return Math.min(1,Math.abs(y_pixel - y) / y_min);
+					};
+				pdi.loop(function(r,g,b,x,y){
+					var blur = factor_blur(y),
+						rgb = f.exec(pdi.source,x,y);
+					return {
+						r:( r*(1-blur) + rgb.r*blur  ),
+						g:( g*(1-blur) + rgb.g*blur ),
+						b:( b*(1-blur) + rgb.b*blur )};
 				});
 			}
 		}
