@@ -7,8 +7,38 @@ body {
 	margin: 0 auto 50px auto;
 }
 
+content {
+	width:100%;
+	height: 100%;
+	display:block;
+	padding-top: 75px;
+}
+
+sector {
+	width: inherit;
+	height: inherit;
+	display:block;
+	padding:10px;
+	float:left;
+}
+
+#liveFootage {
+	width:50%;
+	height: inherit;
+	display:block;
+	padding:10px;
+	float:left;
+}
+
+#rendered {
+	width:50%;
+	height: inherit;
+	display:block;
+	padding:10px;
+	float:right;
+}
+
 canvas {
-	margin-top: 75px;
 	border: 1px solid black;
 }
 
