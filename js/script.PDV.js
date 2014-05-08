@@ -8,7 +8,7 @@
 	// ************************
 
 	function MovementDetection(img1,img2){
-		var p = new Process(img1,img2);
+		var p = new engine.PDV(img1,img2);
 
 		p.loop(function(i1,i2,x,y){
 

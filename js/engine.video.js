@@ -83,7 +83,7 @@ if ( engine == undefined ) throw "Se requiere al motor";
 			}, false);
 		},
 		processStart: function(callback){
-			engine.Video.thread = setInterval(engine.Video.processRun,1000,callback);
+			engine.Video.thread = setInterval(engine.Video.processRun,250,callback);
 			engine.Video.el.play();
 		},
 		processEnd: function(){
@@ -96,7 +96,7 @@ if ( engine == undefined ) throw "Se requiere al motor";
 				engine.Video.imags.prev = engine.Video.imags.now;
 
 			engine.Video.imags.now = new engine.Imagen();
-			engine.Video.imags.now.fromengine.Video(engine.Video.el);
+			engine.Video.imags.now.fromVideo(engine.Video.el);
 
 			if ( engine.Video.imags.prev != null )
 				callback(engine.Video.imags.prev,engine.Video.imags.now);
