@@ -95,7 +95,7 @@ if ( engine == undefined ) throw "Se requiere al motor";
 			if ( engine.Video.imags.now != null )
 				engine.Video.imags.prev = engine.Video.imags.now;
 
-			engine.Video.imags.now = new Imagen();
+			engine.Video.imags.now = new engine.Imagen();
 			engine.Video.imags.now.fromengine.Video(engine.Video.el);
 
 			if ( engine.Video.imags.prev != null )
