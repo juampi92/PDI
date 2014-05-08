@@ -54,11 +54,11 @@
 
 				var $this = $(this);
 				if ( $this.data("pressed") != "true" ) {
-					Video.processStart(MovementDetection);
+					engine.Video.processStart(MovementDetection);
 					$this.data("pressed","true");
 					$this.html("Stop");
 				} else {
-					Video.processEnd();
+					engine.Video.processEnd();
 					$this.data("pressed","false");
 					$this.html("Play");
 				}
