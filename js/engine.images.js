@@ -187,7 +187,7 @@ if ( engine == undefined ) throw "Se requiere al motor";
 		} else
 		this._draw(this.histograma,'black', context , 0,canvas.height , factor );
 
-		var imagen = new Imagen("");
+		var imagen = new engine.Imagen("");
 		imagen.width = canvas.width;
 		imagen.height = canvas.height;
 		imagen.imgData = context.getImageData(0, 0, canvas.width,canvas.height);

@@ -453,7 +453,7 @@
 
 			this.source.$fileInput.on("change",function(e){
 				console.log("ASD");
-				ImageFileLoad(e.target.files[0],function(src){
+				engine.ImageFileLoad(e.target.files[0],function(src){
 					self.img = new engine.Imagen( src );
 					self.img.load(function(i){
 						engine.MyCanvas.renderImg(i);
